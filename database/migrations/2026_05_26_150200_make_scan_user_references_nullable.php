@@ -1,0 +1,30 @@
+<?php
+
+use Illuminate\Database\Migrations\Migration;
+use Illuminate\Database\Schema\Blueprint;
+use Illuminate\Support\Facades\Schema;
+
+return new class extends Migration
+{
+    public function up(): void
+    {
+        Schema::table('scan_queue', function (Blueprint $table) {
+            $table->foreignId('queued_by')->nullable()->change();
+        });
+
+        Schema::table('scan_histories', function (Blueprint $table) {
+            $table->foreignId('triggered_by')->nullable()->change();
+        });
+    }
+
+    public function down(): void
+    {
+        Schema::table('scan_queue', function (Blueprint $table) {
+            $table->foreignId('queued_by')->nullable(false)->change();
+        });
+
+        Schema::table('scan_histories', function (Blueprint $table) {
+            $table->foreignId('triggered_by')->nullable(false)->change();
+        });
+    }
+};
