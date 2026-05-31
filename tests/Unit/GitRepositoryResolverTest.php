@@ -29,4 +29,38 @@ class GitRepositoryResolverTest extends TestCase
             'project_path' => 'team%2Fcore%2Fquality-portal',
         ], $resolved);
     }
+
+    public function test_it_strips_self_hosted_gitlab_base_path_from_https_repository_url(): void
+    {
+        $resolver = new GitRepositoryResolver();
+
+        $resolved = $resolver->resolve(
+            'gitlab',
+            'https://gitlab.example.com/gitlab/team/core/quality-portal.git',
+            'https://gitlab.example.com/gitlab'
+        );
+
+        $this->assertSame([
+            'project_path' => 'team%2Fcore%2Fquality-portal',
+        ], $resolved);
+    }
+
+    public function test_it_can_verify_repository_host_matches_selected_connection(): void
+    {
+        $resolver = new GitRepositoryResolver();
+
+        $this->assertTrue(
+            $resolver->matchesConnectionHost(
+                'git@gitlab.example.com:team/core/quality-portal.git',
+                'https://gitlab.example.com/gitlab'
+            )
+        );
+
+        $this->assertFalse(
+            $resolver->matchesConnectionHost(
+                'https://github.com/acme/platform-api.git',
+                'https://gitlab.example.com/gitlab'
+            )
+        );
+    }
 }

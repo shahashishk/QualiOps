@@ -27,7 +27,17 @@ class GitBranchService
             ];
         }
 
-        $repository = $this->repositoryResolver->resolve($gitConnection->provider_type, $gitUrl);
+        if (! $this->repositoryResolver->matchesConnectionHost($gitUrl, $gitConnection->base_url)) {
+            return [
+                'success' => false,
+                'branches' => [],
+                'default_branch' => null,
+                'message' => 'Repository URL does not match the selected Git connection host.',
+                'requires_manual_selection' => true,
+            ];
+        }
+
+        $repository = $this->repositoryResolver->resolve($gitConnection->provider_type, $gitUrl, $gitConnection->base_url);
 
         if (! $repository) {
             return [
@@ -73,13 +83,28 @@ class GitBranchService
 
     private function fetchGitLabBranches(GitConnection $gitConnection, array $repository): array
     {
-        $response = $this->requestFor($gitConnection)
-            ->acceptJson()
-            ->get(rtrim($gitConnection->base_url, '/').'/api/v4/projects/'.$repository['project_path'].'/repository/branches')
-            ->throw()
-            ->json();
+        $branches = [];
+        $page = 1;
 
-        return collect($response)->pluck('name')->filter()->values()->all();
+        do {
+            $response = $this->requestFor($gitConnection)
+                ->acceptJson()
+                ->get(rtrim($gitConnection->base_url, '/').'/api/v4/projects/'.$repository['project_path'].'/repository/branches', [
+                    'per_page' => 100,
+                    'page' => $page,
+                ])
+                ->throw();
+
+            $branches = array_merge(
+                $branches,
+                collect($response->json())->pluck('name')->filter()->values()->all()
+            );
+
+            $nextPage = (int) $response->header('X-Next-Page', 0);
+            $page = $nextPage;
+        } while ($page > 0);
+
+        return array_values(array_unique($branches));
     }
 
     private function fetchGitHubBranches(GitConnection $gitConnection, array $repository): array

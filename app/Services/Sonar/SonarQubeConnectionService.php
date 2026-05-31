@@ -62,23 +62,17 @@ class SonarQubeConnectionService
     {
         try {
             $baseUrl = rtrim($sonarConnection->sonar_url, '/');
+            $validationResponse = $this->request($sonarConnection)
+                ->get($baseUrl.'/api/authentication/validate')
+                ->throw();
 
-            $response = Http::timeout(10)
-                ->retry(1, 200)
-                ->withBasicAuth((string) $sonarConnection->token, '')
-                ->acceptJson()
-                ->get($baseUrl.'/api/system/status');
-
-            if ($response->failed()) {
-                $response = Http::timeout(10)
-                    ->retry(1, 200)
-                    ->withBasicAuth((string) $sonarConnection->token, '')
-                    ->acceptJson()
-                    ->get($baseUrl.'/api/authentication/validate')
-                    ->throw();
-            } else {
-                $response->throw();
+            if ($validationResponse->json('valid') !== true) {
+                throw new \RuntimeException('SonarQube authentication validation failed.');
             }
+
+            $this->request($sonarConnection)
+                ->get($baseUrl.'/api/server/version')
+                ->throw();
 
             $result = [
                 'success' => true,
@@ -113,6 +107,14 @@ class SonarQubeConnectionService
             'token' => filled($validated['token'] ?? null) ? $validated['token'] : $sonarConnection?->token,
             'active' => (bool) ($validated['active'] ?? false),
         ];
+    }
+
+    private function request(SonarConnection $sonarConnection)
+    {
+        return Http::timeout(10)
+            ->retry(1, 200)
+            ->withToken((string) $sonarConnection->token)
+            ->acceptJson();
     }
 
     private function sanitizeException(Throwable $exception): string

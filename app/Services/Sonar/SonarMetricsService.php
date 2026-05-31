@@ -142,7 +142,7 @@ class SonarMetricsService
     {
         return Http::timeout(15)
             ->retry(1, 200)
-            ->withBasicAuth((string) $project->sonarConnection->token, '')
+            ->withToken((string) $project->sonarConnection->token)
             ->acceptJson();
     }
 
